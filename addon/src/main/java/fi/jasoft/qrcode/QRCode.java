@@ -27,6 +27,7 @@ import java.util.logging.Logger;
 
 import javax.imageio.ImageIO;
 
+import com.vaadin.server.FileDownloader;
 import com.vaadin.server.StreamResource;
 import com.vaadin.ui.AbstractField;
 
@@ -68,6 +69,15 @@ public class QRCode extends AbstractField<String> implements SizeListener {
     public QRCode() {
         doSetValue("");
         registerRpc(this, SizeListener.class);
+    }
+	
+    /**
+     * Constructs an empty <code>QRCode</code> with fileDownloader Object argument.
+     */
+    public QRCode(FileDownloader fileDownloader) {
+        doSetValue("");
+        registerRpc(this, SizeListener.class);
+        this.fileDownloader = fileDownloader;
     }
 
     /**
@@ -150,7 +160,7 @@ public class QRCode extends AbstractField<String> implements SizeListener {
                 + UUID.nameUUIDFromBytes(hash.getBytes()).toString() + ".png";
 
         // Create a image resource
-        setResource(QRCodeConnector.RESOURCE_KEY, new StreamResource(
+        /*setResource(QRCodeConnector.RESOURCE_KEY, new StreamResource(
                 new StreamResource.StreamSource() {
                     public InputStream getStream() {
                         ByteMatrix matrix = renderResult(qrcode, pixelWidth,
@@ -169,7 +179,36 @@ public class QRCode extends AbstractField<String> implements SizeListener {
                         }
                         return null;
                     }
-                }, filename));
+                }, filename));*/
+        
+        StreamResource sr = getStream(filename);
+        setResource(QRCodeConnector.RESOURCE_KEY,sr);
+        if(this.fileDownloader != null)
+        this.fileDownloader.setFileDownloadResource(sr);
+    }
+	
+    private StreamResource getStream(String filename) {
+    	StreamResource.StreamSource source = new StreamResource.StreamSource() {
+            public InputStream getStream() {
+                ByteMatrix matrix = renderResult(qrcode, pixelWidth,
+                        pixelHeight);
+                BufferedImage image = toBufferedImage(matrix,
+                        fgColor.getRGB(), bgColor.getRGB());
+                ByteArrayOutputStream imagebuffer = new ByteArrayOutputStream();
+
+                try {
+                    ImageIO.write(image, "png", imagebuffer);
+                    return new ByteArrayInputStream(imagebuffer
+                            .toByteArray());
+                } catch (IOException e) {
+                    logger.log(Level.SEVERE,
+                            "Could not create QRCode image file", e);
+                }
+                return null;
+            }
+        };
+    	StreamResource resource = new StreamResource ( source, filename);
+    	return resource;
     }
 
     /**
